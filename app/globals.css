@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Warm cream surfaces, rust accent, near-black-brown ink. */
+  --color-cream: #faf6f1;
+  --color-cream-deep: #f2eae0;
+  --color-card: #ffffff;
+  --color-card-warm: #fbf5ef;
+  --color-rust: #b0522f;
+  --color-rust-dark: #90411f;
+  --color-rust-soft: #d9a288;
+  --color-tan: #c99a6b;
+  --color-ink: #2b1d16;
+  --color-ink-soft: #6b5a50;
+  --color-ink-faint: #a19086;
+  --color-whatsapp: #25a35a;
+
+  --font-display: var(--font-oswald), "Arial Narrow", sans-serif;
+  --font-sans: var(--font-poppins), system-ui, sans-serif;
+
+  --radius-card: 24px;
+  --radius-tile: 14px;
+
+  --shadow-card: 0 24px 60px -12px rgb(43 29 22 / 0.18);
+  --shadow-tile: 0 8px 24px -8px rgb(43 29 22 / 0.14);
+  --shadow-cta: 0 12px 28px -8px rgb(176 82 47 / 0.5);
+
+  --animate-marquee: marquee 60s linear infinite;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* The condensed display face is only ever used uppercase, as in the reference. */
+.font-display {
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
