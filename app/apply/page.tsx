@@ -5,9 +5,10 @@ import { ApplicationForm } from "@/components/application-form";
 import { Display, Eyebrow } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Client Application Form — COACHEDBYRUDHRA",
+  title: "Apply for Coaching",
   description:
-    "A short application so the 1:1 training and nutrition guidance is built around your actual schedule.",
+    "A short application so your 1:1 training and nutrition guidance is built around your actual schedule.",
+  alternates: { canonical: "/apply" },
 };
 
 export default function ApplyPage() {

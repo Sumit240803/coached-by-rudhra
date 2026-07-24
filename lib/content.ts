@@ -8,9 +8,14 @@ export const site = {
   name: "COACHEDBYRUDHRA",
   tagline: "1:1 Personal Training & Nutrition Guidance for Busy Professionals",
   handle: "@coachedbyrudhra",
+  // Canonical origin for SEO (metadata, sitemap, robots). Override at deploy
+  // time with NEXT_PUBLIC_SITE_URL once the real domain is live.
+  url: process.env.NEXT_PUBLIC_SITE_URL || "https://coachedbyrudhra.com",
+  description:
+    "1:1 personal training and nutrition guidance built for people with packed calendars, back-to-back meetings, and zero patience for plans that don't work. Fully online coaching from Rudhra.",
   instagram: "https://www.instagram.com/coachedbyrudhra/",
-  // PLACEHOLDER: awaiting real number. Digits only, country code first.
-  whatsappNumber: "910000000000",
+  // Digits only, country code first (India +91).
+  whatsappNumber: "917983374576",
   priceFrom: "₹10,000",
 } as const;
 
