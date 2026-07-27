@@ -2,6 +2,8 @@
 
 Everything this site does, how to operate it, and what to expect from each part.
 
+> **This is the technical reference, written for developers.** If you're Rudhra — or anyone who just needs to run the site day to day — read [CLIENT-GUIDE.md](CLIENT-GUIDE.md) instead. It covers logging in, reading applications, replying to emails, and Google, in plain language.
+
 Setup-from-scratch instructions live in two companion files and are not repeated here:
 
 - [FIREBASE_SETUP.md](FIREBASE_SETUP.md) — creating the Firebase project, security rules, service account
