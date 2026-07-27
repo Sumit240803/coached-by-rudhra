@@ -190,14 +190,22 @@ export function CtaSlide() {
           💬 Message On WhatsApp
         </LinkButton>
       </div>
-      <Link
-        href={site.instagram}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-6 inline-block text-sm text-ink-soft underline transition hover:text-rust"
-      >
-        {site.handle} on Instagram
-      </Link>
+      <div className="mt-6 space-y-1.5">
+        <Link
+          href={site.instagram}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-sm text-ink-soft underline transition hover:text-rust"
+        >
+          {site.handle} on Instagram
+        </Link>
+        <a
+          href={`mailto:${site.supportEmail}`}
+          className="block text-sm text-ink-soft transition hover:text-rust"
+        >
+          Support: {site.supportEmail}
+        </a>
+      </div>
     </Card>
   );
 }

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { site } from "@/lib/content";
+import { useRouter } from "next/navigation";
 import { questions, type Question } from "@/lib/application-questions";
 import { Button, Card } from "@/components/ui";
 
@@ -16,6 +15,7 @@ export function ApplicationForm() {
   // When editing from the review screen, jump straight back to review after.
   const [returnToReview, setReturnToReview] = useState(false);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const router = useRouter();
 
   const isReview = step >= TOTAL;
   const q = questions[step];
@@ -83,7 +83,9 @@ export function ApplicationForm() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Request failed");
       }
-      setSubmitState("success");
+      // Stays "submitting" (button shows "Sending…") through the navigation.
+      const firstName = (values.name ?? "").trim().split(/[,\s]/)[0] ?? "";
+      router.push(`/apply/submitted?name=${encodeURIComponent(firstName)}`);
     } catch (err) {
       console.error("Application submit failed", err);
       setErrorMsg(
@@ -267,33 +269,6 @@ function ReviewStep({
   onSubmit: () => void;
   onEdit: (index: number) => void;
 }) {
-  if (submitState === "success") {
-    const firstName = (values.name ?? "").split(/[,\s]/)[0];
-    return (
-      <div className="animate-step-in py-4 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-whatsapp/15 text-4xl">
-          ✅
-        </div>
-        <h2 className="mt-5 font-display text-2xl font-bold sm:text-[1.7rem]">
-          Application received.
-        </h2>
-        <p className="mt-3 text-ink-soft">
-          Thanks{firstName ? `, ${firstName}` : ""}. Rudhra personally reviews
-          every application and will reach out to you soon. Spots for 1:1
-          coaching are limited each month, so keep an eye on your phone.
-        </p>
-        <Link
-          href={site.instagram}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-6 inline-block text-sm text-ink-soft underline transition hover:text-rust"
-        >
-          While you wait, follow {site.handle} →
-        </Link>
-      </div>
-    );
-  }
-
   const submitting = submitState === "submitting";
 
   return (
