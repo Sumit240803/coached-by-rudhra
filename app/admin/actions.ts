@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import {
   ADMIN_COOKIE,
   isAdminAuthConfigured,
@@ -11,7 +12,15 @@ import {
   verifyPassword,
   verifyUsername,
 } from "@/lib/admin-auth";
+import { getAdminDb } from "@/lib/firebase-admin";
 import { sendReply } from "@/lib/mailer";
+
+async function isAdmin() {
+  const jar = await cookies();
+  return isValidSession(jar.get(ADMIN_COOKIE)?.value);
+}
+
+export type ActionResult = { ok?: boolean; error?: string };
 
 export type LoginState = { error?: string };
 
@@ -47,6 +56,42 @@ export async function logout() {
   const jar = await cookies();
   jar.delete(ADMIN_COOKIE);
   redirect("/admin");
+}
+
+export async function deleteApplication(id: string): Promise<ActionResult> {
+  if (!(await isAdmin())) return { error: "Not authorized." };
+  const db = getAdminDb();
+  if (!db) return { error: "Not configured." };
+  try {
+    await db.collection("applications").doc(id).delete();
+    revalidatePath("/admin");
+    return { ok: true };
+  } catch (err) {
+    console.error("Delete application failed", err);
+    return { error: "Could not delete the application." };
+  }
+}
+
+/**
+ * Resend has no delete API for inbound emails, so "delete" here means dismiss:
+ * record the id and filter it out of the admin inbox view.
+ */
+export async function dismissInboundEmail(id: string): Promise<ActionResult> {
+  if (!(await isAdmin())) return { error: "Not authorized." };
+  if (!id) return { error: "Missing id." };
+  const db = getAdminDb();
+  if (!db) return { error: "Not configured." };
+  try {
+    await db
+      .collection("dismissed_inbound")
+      .doc(id)
+      .set({ dismissedAt: new Date().toISOString() });
+    revalidatePath("/admin");
+    return { ok: true };
+  } catch (err) {
+    console.error("Dismiss inbound failed", err);
+    return { error: "Could not remove the email." };
+  }
 }
 
 export type ReplyState = { ok?: boolean; error?: string };

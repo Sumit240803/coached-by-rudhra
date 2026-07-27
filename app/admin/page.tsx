@@ -9,9 +9,11 @@ import {
 } from "@/lib/admin-auth";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { listInboundEmails, type InboundEmail } from "@/lib/resend-inbound";
+import { questions } from "@/lib/application-questions";
 import { LoginForm } from "./login-form";
 import { ReplyForm } from "./reply-form";
-import { logout } from "./actions";
+import { ConfirmDelete } from "./confirm-delete";
+import { logout, deleteApplication, dismissInboundEmail } from "./actions";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -23,11 +25,25 @@ export const dynamic = "force-dynamic";
 
 type Submission = {
   id: string;
-  name?: string;
-  phone?: string;
-  summary?: string;
-  createdAt?: string | null;
+  answers: Record<string, string>;
+  createdAt: string | null;
 };
+
+/** Concise field labels for the admin card (the form labels are conversational). */
+const SHORT_LABELS: Record<string, string> = {
+  work: "Occupation & schedule",
+  why: "Why now",
+  frustration: "Frustration (1–10)",
+  meaning: "What it would mean",
+  goal: "Primary goal",
+  activity: "Activity level",
+  injuries: "Injuries / conditions",
+  access: "Training access",
+  diet: "Diet",
+  commitment: "Weekly commitment",
+  investment: "Investment comfort",
+};
+const FULL_WIDTH = new Set(["work", "why", "meaning", "injuries"]);
 
 async function loadSubmissions(): Promise<{ rows: Submission[]; error?: string }> {
   const db = getAdminDb();
@@ -50,11 +66,13 @@ async function loadSubmissions(): Promise<{ rows: Submission[]; error?: string }
         d.createdAt && typeof d.createdAt.toDate === "function"
           ? d.createdAt.toDate()
           : null;
+      const answers: Record<string, string> = {};
+      for (const q of questions) {
+        answers[q.id] = typeof d[q.id] === "string" ? d[q.id] : "";
+      }
       return {
         id: doc.id,
-        name: d.name,
-        phone: d.phone,
-        summary: d.summary,
+        answers,
         createdAt: created
           ? created.toLocaleString("en-IN", {
               dateStyle: "medium",
@@ -83,13 +101,21 @@ async function loadInbox(): Promise<{ emails: InboundEmail[]; error?: string }> 
         error: "Email reading isn't configured. Set RESEND_API_KEY.",
       };
     }
-    return { emails };
+    // Filter out any emails dismissed from the admin view.
+    const db = getAdminDb();
+    let dismissed = new Set<string>();
+    if (db) {
+      try {
+        const snap = await db.collection("dismissed_inbound").get();
+        dismissed = new Set(snap.docs.map((d) => d.id));
+      } catch {
+        /* ignore — show everything if we can't read dismissals */
+      }
+    }
+    return { emails: emails.filter((e) => !dismissed.has(e.id)) };
   } catch (err) {
     console.error("Inbox load failed", err);
-    return {
-      emails: [],
-      error: "Could not read received emails from Resend.",
-    };
+    return { emails: [], error: "Could not read received emails from Resend." };
   }
 }
 
@@ -139,7 +165,6 @@ export default async function AdminPage({
           </form>
         </div>
 
-        {/* Tabs */}
         <nav className="mt-5 flex gap-2">
           <Tab href="/admin" active={view === "applications"}>
             Applications
@@ -149,9 +174,7 @@ export default async function AdminPage({
           </Tab>
         </nav>
 
-        <div className="mt-6">
-          {view === "inbox" ? <Inbox /> : <Applications />}
-        </div>
+        <div className="mt-6">{view === "inbox" ? <Inbox /> : <Applications />}</div>
       </div>
     </main>
   );
@@ -180,53 +203,105 @@ function Tab({
   );
 }
 
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-card bg-card p-8 text-center text-ink-soft shadow-card">
+      {children}
+    </div>
+  );
+}
+
+function ErrorBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-card border border-dashed border-tan bg-card p-6 text-sm text-ink-soft">
+      {children}
+    </div>
+  );
+}
+
 async function Applications() {
   const { rows, error } = await loadSubmissions();
 
-  if (error) {
+  if (error) return <ErrorBox>{error}</ErrorBox>;
+  if (rows.length === 0)
     return (
-      <div className="rounded-card border border-dashed border-tan bg-card p-6 text-sm text-ink-soft">
-        {error}
-      </div>
-    );
-  }
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-card bg-card p-8 text-center text-ink-soft shadow-card">
+      <Empty>
         No applications yet. They&apos;ll appear here the moment someone submits
         the form.
-      </div>
+      </Empty>
     );
-  }
+
   return (
     <>
       <p className="mb-4 text-sm text-ink-soft">
         {rows.length} total{rows.length === 200 ? " (latest 200)" : ""}
       </p>
       <ul className="space-y-4">
-        {rows.map((row) => (
-          <li key={row.id} className="rounded-card bg-card p-5 shadow-card sm:p-6">
-            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-rust/10 pb-3">
-              <div>
-                <span className="font-display text-lg font-bold text-ink">
-                  {row.name || "Unnamed"}
-                </span>
-                {row.phone && (
-                  <a
-                    href={`tel:${row.phone.replace(/\s/g, "")}`}
-                    className="ml-3 text-sm text-rust hover:underline"
-                  >
-                    {row.phone}
-                  </a>
-                )}
+        {rows.map((row) => {
+          const name = row.answers.name || "Unnamed";
+          const phone = row.answers.phone;
+          return (
+            <li key={row.id} className="rounded-card bg-card p-5 shadow-card sm:p-6">
+              <div className="flex items-start justify-between gap-3 border-b border-rust/10 pb-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-display text-xl font-bold text-ink">
+                      {name}
+                    </h3>
+                    <span className="rounded-full bg-rust/10 px-2 py-0.5 font-display text-[0.6rem] tracking-widest text-rust">
+                      NEW
+                    </span>
+                  </div>
+                  {phone && (
+                    <a
+                      href={`tel:${phone.replace(/\s/g, "")}`}
+                      className="mt-0.5 inline-block text-sm text-rust hover:underline"
+                    >
+                      {phone}
+                    </a>
+                  )}
+                </div>
+                <div className="flex flex-none items-center gap-2">
+                  <span className="hidden text-xs text-ink-faint sm:inline">
+                    {row.createdAt ?? "—"}
+                  </span>
+                  <ConfirmDelete
+                    action={deleteApplication.bind(null, row.id)}
+                    title="Delete this application?"
+                    description={`This permanently removes ${name} from the database. This can't be undone.`}
+                  />
+                </div>
               </div>
-              <span className="text-xs text-ink-faint">{row.createdAt ?? "—"}</span>
-            </div>
-            <pre className="mt-3 font-sans text-sm leading-relaxed whitespace-pre-wrap text-ink-soft">
-              {row.summary || "(no details)"}
-            </pre>
-          </li>
-        ))}
+
+              <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                {questions
+                  .filter((q) => q.id !== "name" && q.id !== "phone")
+                  .map((q) => {
+                    const v = row.answers[q.id];
+                    const display =
+                      q.id === "frustration" && v ? `${v} / 10` : v;
+                    return (
+                      <div
+                        key={q.id}
+                        className={FULL_WIDTH.has(q.id) ? "sm:col-span-2" : ""}
+                      >
+                        <dt className="font-display text-[0.65rem] tracking-widest text-ink-faint uppercase">
+                          {SHORT_LABELS[q.id] ?? q.label}
+                        </dt>
+                        <dd
+                          className={`mt-1 text-sm leading-relaxed ${
+                            v ? "text-ink" : "text-ink-faint italic"
+                          }`}
+                        >
+                          {display || "—"}
+                        </dd>
+                      </div>
+                    );
+                  })}
+              </dl>
+            </li>
+          );
+        })}
       </ul>
     </>
   );
@@ -235,38 +310,44 @@ async function Applications() {
 async function Inbox() {
   const { emails, error } = await loadInbox();
 
-  if (error) {
+  if (error) return <ErrorBox>{error}</ErrorBox>;
+  if (emails.length === 0)
     return (
-      <div className="rounded-card border border-dashed border-tan bg-card p-6 text-sm text-ink-soft">
-        {error}
-      </div>
-    );
-  }
-  if (emails.length === 0) {
-    return (
-      <div className="rounded-card bg-card p-8 text-center text-ink-soft shadow-card">
+      <Empty>
         No received emails yet. Anything sent to your Resend inbound address will
         appear here.
-      </div>
+      </Empty>
     );
-  }
+
   return (
     <ul className="space-y-4">
       {emails.map((e) => (
         <li key={e.id} className="rounded-card bg-card p-5 shadow-card sm:p-6">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-rust/10 pb-3">
+          <div className="flex items-start justify-between gap-3 border-b border-rust/10 pb-3">
             <div className="min-w-0">
-              <span className="font-display text-lg font-bold text-ink">
+              <h3 className="font-display text-lg font-bold text-ink">
                 {e.subject}
-              </span>
+              </h3>
               <span className="mt-0.5 block text-sm text-ink-soft">
                 From <span className="text-rust">{e.from || "unknown"}</span>
                 {e.receivedFor.length > 0 && (
-                  <span className="text-ink-faint"> → {e.receivedFor.join(", ")}</span>
+                  <span className="text-ink-faint">
+                    {" "}
+                    → {e.receivedFor.join(", ")}
+                  </span>
                 )}
               </span>
             </div>
-            <span className="text-xs text-ink-faint">{fmtDate(e.createdAt)}</span>
+            <div className="flex flex-none items-center gap-2">
+              <span className="hidden text-xs text-ink-faint sm:inline">
+                {fmtDate(e.createdAt)}
+              </span>
+              <ConfirmDelete
+                action={dismissInboundEmail.bind(null, e.id)}
+                title="Remove this email?"
+                description="This removes it from your admin inbox. The original stays in Resend."
+              />
+            </div>
           </div>
           {e.text ? (
             <pre className="mt-3 max-h-80 overflow-auto font-sans text-sm leading-relaxed whitespace-pre-wrap text-ink-soft">
