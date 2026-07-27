@@ -150,6 +150,49 @@ function renderApplicationEmail(input: {
 </html>`;
 }
 
+/** Default From used when a reply has no better domain address to send as. */
+export const defaultFrom = from;
+
+/**
+ * Sends a reply to a received email, from the custom domain, threaded to the
+ * original via In-Reply-To/References headers.
+ */
+export async function sendReply(input: {
+  from?: string;
+  to: string;
+  subject: string;
+  body: string;
+  inReplyTo?: string;
+}): Promise<{ sent: boolean; error?: string }> {
+  const tx = getTransporter();
+  if (!tx) return { sent: false, error: "Email is not configured." };
+
+  const bodyHtml = esc(input.body).replace(/\r?\n/g, "<br>");
+  const html = `<!doctype html><html><head><meta name="color-scheme" content="light dark"></head>
+<body style="margin:0;background:#f2eae0;">
+  <div style="max-width:560px;margin:0 auto;padding:28px 20px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#2b1d16;">
+    ${bodyHtml}
+  </div>
+</body></html>`;
+
+  try {
+    await tx.sendMail({
+      from: input.from || from,
+      to: input.to,
+      subject: input.subject,
+      text: input.body,
+      html,
+      inReplyTo: input.inReplyTo || undefined,
+      references: input.inReplyTo || undefined,
+    });
+    return { sent: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error("Reply send failed", error);
+    return { sent: false, error };
+  }
+}
+
 /**
  * Sends the coach a "new application" notification. Best-effort: returns a
  * result so a mail failure never loses a lead.

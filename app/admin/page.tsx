@@ -10,6 +10,7 @@ import {
 import { getAdminDb } from "@/lib/firebase-admin";
 import { listInboundEmails, type InboundEmail } from "@/lib/resend-inbound";
 import { LoginForm } from "./login-form";
+import { ReplyForm } from "./reply-form";
 import { logout } from "./actions";
 
 export const metadata: Metadata = {
@@ -276,6 +277,12 @@ async function Inbox() {
               (No plain-text body — open in Resend to view the full message.)
             </p>
           )}
+          <ReplyForm
+            to={e.from}
+            subject={e.subject}
+            fromAddress={e.receivedFor[0] ?? ""}
+            inReplyTo={e.messageId}
+          />
         </li>
       ))}
     </ul>

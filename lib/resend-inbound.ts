@@ -19,6 +19,8 @@ export type InboundEmail = {
   createdAt: string;
   text: string;
   html: string;
+  /** Original Message-ID, used to thread replies (In-Reply-To/References). */
+  messageId: string;
 };
 
 async function resendGet(path: string) {
@@ -41,6 +43,7 @@ function normalize(e: any, id: string): InboundEmail {
     createdAt: e.created_at ?? "",
     text: e.text ?? "",
     html: e.html ?? "",
+    messageId: e.message_id ?? e.messageId ?? "",
   };
 }
 

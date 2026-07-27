@@ -5,11 +5,13 @@ import { redirect } from "next/navigation";
 import {
   ADMIN_COOKIE,
   isAdminAuthConfigured,
+  isValidSession,
   requiresUsername,
   sessionToken,
   verifyPassword,
   verifyUsername,
 } from "@/lib/admin-auth";
+import { sendReply } from "@/lib/mailer";
 
 export type LoginState = { error?: string };
 
@@ -45,4 +47,39 @@ export async function logout() {
   const jar = await cookies();
   jar.delete(ADMIN_COOKIE);
   redirect("/admin");
+}
+
+export type ReplyState = { ok?: boolean; error?: string };
+
+export async function replyToEmail(
+  _prev: ReplyState,
+  formData: FormData,
+): Promise<ReplyState> {
+  // Only a logged-in admin may send replies.
+  const jar = await cookies();
+  if (!isValidSession(jar.get(ADMIN_COOKIE)?.value)) {
+    return { error: "Not authorized." };
+  }
+
+  const to = String(formData.get("to") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  let subject = String(formData.get("subject") ?? "").trim();
+  const fromAddress = String(formData.get("fromAddress") ?? "").trim();
+  const inReplyTo = String(formData.get("inReplyTo") ?? "").trim();
+
+  if (!to || !body) return { error: "Nothing to send." };
+  if (!subject) subject = "Re:";
+  if (!/^re:/i.test(subject)) subject = `Re: ${subject}`;
+
+  // Reply from the domain address the mail was received for, if valid.
+  const from =
+    fromAddress && fromAddress.endsWith("@coachedbyrudhra.com")
+      ? `CoachedByRudhra <${fromAddress}>`
+      : undefined;
+
+  const res = await sendReply({ from, to, subject, body, inReplyTo });
+  if (!res.sent) {
+    return { error: res.error || "Could not send the reply." };
+  }
+  return { ok: true };
 }
