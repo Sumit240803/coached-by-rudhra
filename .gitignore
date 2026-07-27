@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Firebase service account credentials — NEVER commit
+*firebase-adminsdk*.json
+*-service-account*.json

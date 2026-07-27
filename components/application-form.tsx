@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { site, whatsappLink } from "@/lib/content";
-import { Button, Card, LinkButton } from "@/components/ui";
+import Link from "next/link";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { site } from "@/lib/content";
+import {
+  APPLICATIONS_COLLECTION,
+  getDb,
+} from "@/lib/firebase";
+import { Button, Card } from "@/components/ui";
+
+type SubmitState = "idle" | "submitting" | "success" | "error";
 
 type Question = {
   id: string;
@@ -152,19 +160,55 @@ export function ApplicationForm() {
     setTimeout(goNext, 160);
   }
 
-  const message = [
-    `Hi Rudhra, here's my application:`,
-    "",
-    ...questions.map(
+  const [submitState, setSubmitState] = useState<SubmitState>("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Human-readable version stored beside the structured answers for quick
+  // scanning in the Firebase console.
+  const summary = questions
+    .map(
       (item, i) => `${i + 1}. ${item.label}\n${values[item.id]?.trim() || "—"}`,
-    ),
-  ].join("\n");
+    )
+    .join("\n\n");
 
   const answeredCount = questions.filter(
     (item) => values[item.id]?.trim() || item.optional,
   ).length;
   const complete = answeredCount === TOTAL;
   const progress = isReview ? 100 : (step / TOTAL) * 100;
+
+  async function submit() {
+    if (submitState === "submitting") return;
+    const db = getDb();
+    if (!db) {
+      setErrorMsg(
+        "Applications aren't connected yet. Please reach out on WhatsApp or Instagram for now.",
+      );
+      setSubmitState("error");
+      return;
+    }
+    setSubmitState("submitting");
+    setErrorMsg("");
+    try {
+      const answers = Object.fromEntries(
+        questions.map((item) => [item.id, values[item.id]?.trim() || ""]),
+      );
+      await addDoc(collection(db, APPLICATIONS_COLLECTION), {
+        ...answers,
+        summary,
+        status: "new",
+        source: "website",
+        createdAt: serverTimestamp(),
+      });
+      setSubmitState("success");
+    } catch (err) {
+      console.error("Application submit failed", err);
+      setErrorMsg(
+        "Something went wrong sending your application. Please try again, or reach out on WhatsApp.",
+      );
+      setSubmitState("error");
+    }
+  }
 
   return (
     <Card className="relative w-full max-w-lg overflow-hidden pt-10">
@@ -200,7 +244,9 @@ export function ApplicationForm() {
           questions={questions}
           values={values}
           complete={complete}
-          message={message}
+          submitState={submitState}
+          errorMsg={errorMsg}
+          onSubmit={submit}
           onEdit={(i) => {
             setReturnToReview(true);
             setStep(i);
@@ -296,6 +342,7 @@ export function ApplicationForm() {
       )}
 
       {/* Dots */}
+      {submitState !== "success" && (
       <div className="mt-8 flex justify-center gap-1.5">
         {questions.map((_, i) => (
           <span
@@ -310,6 +357,7 @@ export function ApplicationForm() {
           />
         ))}
       </div>
+      )}
     </Card>
   );
 }
@@ -318,15 +366,48 @@ function ReviewStep({
   questions,
   values,
   complete,
-  message,
+  submitState,
+  errorMsg,
+  onSubmit,
   onEdit,
 }: {
   questions: Question[];
   values: Record<string, string>;
   complete: boolean;
-  message: string;
+  submitState: SubmitState;
+  errorMsg: string;
+  onSubmit: () => void;
   onEdit: (index: number) => void;
 }) {
+  if (submitState === "success") {
+    const firstName = (values.name ?? "").split(/[,\s]/)[0];
+    return (
+      <div className="animate-step-in py-4 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-whatsapp/15 text-4xl">
+          ✅
+        </div>
+        <h2 className="mt-5 font-display text-2xl font-bold sm:text-[1.7rem]">
+          Application received.
+        </h2>
+        <p className="mt-3 text-ink-soft">
+          Thanks{firstName ? `, ${firstName}` : ""}. Rudhra personally reviews
+          every application and will reach out to you soon. Spots for 1:1
+          coaching are limited each month, so keep an eye on your phone.
+        </p>
+        <Link
+          href={site.instagram}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-6 inline-block text-sm text-ink-soft underline transition hover:text-rust"
+        >
+          While you wait, follow {site.handle} →
+        </Link>
+      </div>
+    );
+  }
+
+  const submitting = submitState === "submitting";
+
   return (
     <div className="animate-step-in">
       <h2 className="font-display text-2xl font-bold sm:text-[1.7rem]">
@@ -343,7 +424,8 @@ function ReviewStep({
             <li key={q.id}>
               <button
                 onClick={() => onEdit(i)}
-                className="group flex w-full items-start gap-3 py-3 text-left"
+                disabled={submitting}
+                className="group flex w-full items-start gap-3 py-3 text-left disabled:opacity-60"
               >
                 <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-cream-deep text-[0.7rem] font-semibold text-ink-soft">
                   {i + 1}
@@ -366,24 +448,21 @@ function ReviewStep({
       </ul>
 
       <div className="mt-6 rounded-tile bg-card-warm p-4 text-center text-sm text-ink-soft">
-        Sending opens WhatsApp with everything filled in — just review and hit
-        send. Spots for 1:1 coaching are limited each month.
+        When you submit, your answers go straight to Rudhra. He reviews every
+        application personally and reaches out to you. Spots for 1:1 coaching are
+        limited each month.
       </div>
 
-      {complete ? (
-        <LinkButton
-          className="mt-4"
-          tone="whatsapp"
-          href={whatsappLink(message)}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          💬 Send Application On WhatsApp
-        </LinkButton>
-      ) : (
-        <Button className="mt-4" tone="whatsapp" disabled>
-          💬 Send Application On WhatsApp
-        </Button>
+      <Button
+        className="mt-4"
+        onClick={onSubmit}
+        disabled={!complete || submitting}
+      >
+        {submitting ? "Sending…" : "Submit application →"}
+      </Button>
+
+      {submitState === "error" && (
+        <p className="mt-3 text-center text-sm text-rust">{errorMsg}</p>
       )}
     </div>
   );
