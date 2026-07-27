@@ -2,114 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { site } from "@/lib/content";
-import {
-  APPLICATIONS_COLLECTION,
-  getDb,
-} from "@/lib/firebase";
+import { questions, type Question } from "@/lib/application-questions";
 import { Button, Card } from "@/components/ui";
 
 type SubmitState = "idle" | "submitting" | "success" | "error";
-
-type Question = {
-  id: string;
-  label: string;
-  hint: string;
-  placeholder?: string;
-  type?: "text" | "textarea" | "scale" | "yesno";
-  /** Optional questions can be advanced past without an answer. */
-  optional?: boolean;
-};
-
-/** The 13 questions, verbatim from the client's application form PDF,
- *  asked one at a time to keep the form light and finishable. */
-const questions: Question[] = [
-  {
-    id: "name",
-    label: "First, your name and age",
-    hint: "Let's start with the basics.",
-    placeholder: "e.g. Priya, 34",
-  },
-  {
-    id: "phone",
-    label: "Your phone / WhatsApp number",
-    hint: "This is how Rudhra will reach you for your consultation.",
-    placeholder: "e.g. 98765 43210",
-  },
-  {
-    id: "work",
-    label: "What do you do, and what's your schedule like?",
-    hint: "Work hours, travel days, anything that shapes your week.",
-    type: "textarea",
-    placeholder: "e.g. Product manager, 9–7, travel ~1 week a month…",
-  },
-  {
-    id: "why",
-    label: "Why do you want to start now — what changed?",
-    hint: "Be honest. This helps Rudhra understand what's really driving this.",
-    type: "textarea",
-    placeholder: "What made today the day?",
-  },
-  {
-    id: "frustration",
-    label: "How frustrated are you with your health and energy right now?",
-    hint: "1 = totally fine · 10 = completely fed up. There's no wrong answer.",
-    type: "scale",
-  },
-  {
-    id: "meaning",
-    label: "What would hitting this goal actually mean for your life?",
-    hint: "Confidence, energy, relationships, how you show up at work — go beyond the physical.",
-    type: "textarea",
-    placeholder: "Paint the picture…",
-  },
-  {
-    id: "goal",
-    label: "What's your primary fitness goal?",
-    hint: "Weight loss, muscle, strength, energy, stress management.",
-    placeholder: "e.g. Lose fat and feel less tired by 6pm",
-  },
-  {
-    id: "activity",
-    label: "What's your current activity level?",
-    hint: "Training already, or starting from scratch?",
-    placeholder: "e.g. Walk sometimes, haven't lifted in years",
-  },
-  {
-    id: "injuries",
-    label: "Any injuries, medical conditions, or limitations?",
-    hint: "Anything Rudhra should design around. Type “None” if nothing applies.",
-    type: "textarea",
-    placeholder: "None, or describe…",
-    optional: true,
-  },
-  {
-    id: "access",
-    label: "Where will you train?",
-    hint: "Gym, home equipment, or a hybrid?",
-    placeholder: "e.g. Building gym + a few dumbbells at home",
-  },
-  {
-    id: "diet",
-    label: "Any dietary preferences or restrictions?",
-    hint: "Veg, non-veg, vegan, allergies, or anything you avoid.",
-    placeholder: "e.g. Vegetarian, no eggs",
-  },
-  {
-    id: "commitment",
-    label: "Realistically, how many days a week can you train?",
-    hint: "Given your actual schedule — the plan is built on this.",
-    type: "text",
-    placeholder: "e.g. 3 days, maybe 4 on a good week",
-  },
-  {
-    id: "investment",
-    label: "A quick one on investment",
-    hint: `Coaching starts from ${site.priceFrom} INR onwards. Are you comfortable investing at this level in your health?`,
-    type: "yesno",
-  },
-];
 
 const TOTAL = questions.length;
 
@@ -163,14 +60,6 @@ export function ApplicationForm() {
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Human-readable version stored beside the structured answers for quick
-  // scanning in the Firebase console.
-  const summary = questions
-    .map(
-      (item, i) => `${i + 1}. ${item.label}\n${values[item.id]?.trim() || "—"}`,
-    )
-    .join("\n\n");
-
   const answeredCount = questions.filter(
     (item) => values[item.id]?.trim() || item.optional,
   ).length;
@@ -179,27 +68,21 @@ export function ApplicationForm() {
 
   async function submit() {
     if (submitState === "submitting") return;
-    const db = getDb();
-    if (!db) {
-      setErrorMsg(
-        "Applications aren't connected yet. Please reach out on WhatsApp or Instagram for now.",
-      );
-      setSubmitState("error");
-      return;
-    }
     setSubmitState("submitting");
     setErrorMsg("");
     try {
       const answers = Object.fromEntries(
         questions.map((item) => [item.id, values[item.id]?.trim() || ""]),
       );
-      await addDoc(collection(db, APPLICATIONS_COLLECTION), {
-        ...answers,
-        summary,
-        status: "new",
-        source: "website",
-        createdAt: serverTimestamp(),
+      const res = await fetch("/api/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Request failed");
+      }
       setSubmitState("success");
     } catch (err) {
       console.error("Application submit failed", err);
@@ -278,9 +161,14 @@ export function ApplicationForm() {
                   </button>
                 ))}
               </div>
-            ) : q.type === "yesno" ? (
+            ) : q.type === "yesno" || q.type === "choice" ? (
               <div className="grid gap-3">
-                {["Yes, I'm comfortable", "I'd like to discuss it first"].map(
+                {(
+                  q.options ?? [
+                    "Yes, I'm comfortable",
+                    "I'd like to discuss it first",
+                  ]
+                ).map(
                   (opt) => (
                     <button
                       key={opt}
@@ -323,7 +211,7 @@ export function ApplicationForm() {
           </div>
 
           {/* Continue button only for the typed steps; picks auto-advance. */}
-          {q.type !== "scale" && q.type !== "yesno" && (
+          {q.type !== "scale" && q.type !== "yesno" && q.type !== "choice" && (
             <div className="mt-6">
               <Button onClick={goNext} disabled={!currentValid}>
                 Continue →

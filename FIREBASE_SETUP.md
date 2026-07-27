@@ -37,6 +37,13 @@ values are baked into the client bundle.
 
 ## 3. Firestore security rules
 
+> **Note:** Submissions are now written **server-side** via `POST /api/apply`
+> (Admin SDK), not from the browser. The Admin SDK bypasses these rules, so you
+> can safely lock the client out entirely — replace the whole block with
+> `allow read, write: if false;` for the `applications` collection. The rules
+> below (which still allow client `create`) remain valid and harmless if you'd
+> rather not change them.
+
 Paste these into **Firestore Database → Rules → Publish**. They allow the public
 form to *create* a submission (with basic validation) but block all client-side
 reading, editing, and deleting — you read submissions from the Firebase console
