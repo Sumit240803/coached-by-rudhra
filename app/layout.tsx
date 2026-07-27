@@ -2,6 +2,13 @@ import type { Metadata, Viewport } from "next";
 import { Oswald, Poppins } from "next/font/google";
 import "./globals.css";
 import { site } from "@/lib/content";
+import { JsonLd } from "@/components/json-ld";
+import {
+  graph,
+  organizationNode,
+  personNode,
+  websiteNode,
+} from "@/lib/seo";
 
 const oswald = Oswald({
   variable: "--font-oswald",
@@ -45,11 +52,20 @@ export const metadata: Metadata = {
     description: site.description,
     url: site.url,
     locale: "en_IN",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: `${site.name} — ${site.tagline}`,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: `${site.name} — ${site.tagline}`,
     description: site.description,
+    images: [{ url: "/opengraph-image", alt: `${site.name} — ${site.tagline}` }],
   },
   robots: {
     index: true,
@@ -68,24 +84,10 @@ export const viewport: Viewport = {
   themeColor: "#b0522f",
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "ProfessionalService",
-  name: site.name,
-  description: site.description,
-  url: site.url,
-  image: `${site.url}/opengraph-image`,
-  priceRange: "₹₹",
-  areaServed: "IN",
-  sameAs: [site.instagram],
-  founder: { "@type": "Person", name: "Rudhra" },
-  makesOffer: {
-    "@type": "Offer",
-    category: "1:1 Personal Training & Nutrition Coaching",
-    priceCurrency: "INR",
-    price: "10000",
-  },
-};
+// The business, the site, and the coach — emitted once on every page. Individual
+// pages add only their own nodes (WebPage, BreadcrumbList, FAQPage, …) and refer
+// back to these by @id, so nothing is declared twice.
+const jsonLd = graph(organizationNode(), websiteNode(), personNode());
 
 export default function RootLayout({
   children,
@@ -99,10 +101,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-cream text-ink">
         {children}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
+        <JsonLd data={jsonLd} />
       </body>
     </html>
   );
