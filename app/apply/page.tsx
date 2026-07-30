@@ -39,9 +39,9 @@ export default function ApplyPage() {
             <Display lead="Thinking About Starting Isn't" accent="Being Ready." />
           </div>
           <p className="mx-auto mt-4 max-w-md text-sm text-ink-soft">
-            This short application helps Rudhra understand your schedule, goals,
-            and mindset as a busy professional — so the plan actually fits your
-            life, not the other way around.
+            Mostly tap-to-answer, about two minutes. It helps Rudhra understand
+            your schedule, goals, and mindset as a busy professional — so the
+            plan actually fits your life, not the other way around.
           </p>
         </div>
 

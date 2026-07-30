@@ -31,7 +31,9 @@ type Submission = {
 
 /** Concise field labels for the admin card (the form labels are conversational). */
 const SHORT_LABELS: Record<string, string> = {
-  work: "Occupation & schedule",
+  age: "Age",
+  work: "Occupation",
+  hours: "Work hours",
   why: "Why now",
   frustration: "Frustration (1–10)",
   meaning: "What it would mean",
@@ -42,8 +44,9 @@ const SHORT_LABELS: Record<string, string> = {
   diet: "Diet",
   commitment: "Weekly commitment",
   investment: "Investment comfort",
+  notes: "Anything else",
 };
-const FULL_WIDTH = new Set(["work", "why", "meaning", "injuries"]);
+const FULL_WIDTH = new Set(["why", "meaning", "injuries", "notes"]);
 
 async function loadSubmissions(): Promise<{ rows: Submission[]; error?: string }> {
   const db = getAdminDb();

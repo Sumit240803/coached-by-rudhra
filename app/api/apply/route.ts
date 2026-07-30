@@ -31,8 +31,31 @@ export async function POST(request: Request) {
   const answers: Record<string, string> = {};
   for (const q of questions) {
     const raw = incoming[q.id];
-    answers[q.id] =
-      typeof raw === "string" ? raw.trim().slice(0, MAX_LEN) : "";
+    const value = typeof raw === "string" ? raw.trim().slice(0, MAX_LEN) : "";
+
+    // Option-based answers only ever come from a fixed set, so anything else is
+    // a tampered payload — drop it rather than storing junk. Required questions
+    // then fail the missing-answer check below.
+    if (value && q.type === "choice") {
+      answers[q.id] = q.options?.includes(value) ? value : "";
+      continue;
+    }
+    if (value && q.type === "multi") {
+      const picked = value
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => q.options?.includes(part));
+      // Re-emit in canonical option order, de-duplicated.
+      answers[q.id] =
+        q.options?.filter((opt) => picked.includes(opt)).join(", ") ?? "";
+      continue;
+    }
+    if (value && q.type === "scale") {
+      answers[q.id] = /^([1-9]|10)$/.test(value) ? value : "";
+      continue;
+    }
+
+    answers[q.id] = value;
   }
 
   // Required fields (everything except the optional injuries question).

@@ -5,25 +5,49 @@ export type Question = {
   label: string;
   hint: string;
   placeholder?: string;
-  type?: "text" | "textarea" | "scale" | "yesno" | "choice";
-  /** Tappable options for "choice" (and, if given, "yesno") questions. */
+  type?: "text" | "textarea" | "scale" | "choice" | "multi";
+  /** Tappable options for "choice" (single pick) and "multi" (pick many). */
   options?: string[];
+  /**
+   * Options that clear every other selection when tapped (and are cleared by
+   * any other tap) — e.g. "Nothing — all clear" on the medical question.
+   */
+  exclusive?: string[];
+  /** Two-up tiles instead of a stacked list — for short options. */
+  layout?: "grid";
   /** Optional questions can be advanced past without an answer. */
   optional?: boolean;
 };
 
 /**
- * The 13 application questions, verbatim from the client's form PDF.
- * Shared by the form (client) and the /api/apply route (server) so labels,
- * order, and required-ness stay in sync between the UI and the stored/emailed
- * summary.
+ * The application questions, adapted from the client's form PDF.
+ *
+ * Deliberately tap-first: only the name, the phone number, and one optional
+ * closing note are typed. Everything else is a single- or multi-pick, because
+ * the people filling this in are doing it on a phone between meetings and a
+ * page of empty text boxes is where applications get abandoned.
+ *
+ * Defined once and shared by the form (client) and the /api/apply route
+ * (server) so labels, order, and required-ness stay in sync between the UI and
+ * the stored/emailed summary.
+ *
+ * Multi-pick answers are stored as a ", "-joined string, so multi options must
+ * never contain a comma.
  */
 export const questions: Question[] = [
   {
     id: "name",
-    label: "First, your name and age",
-    hint: "Let's start with the basics.",
-    placeholder: "e.g. Priya, 34",
+    label: "First, what should Rudhra call you?",
+    hint: "Just your first name is fine.",
+    placeholder: "e.g. Priya",
+  },
+  {
+    id: "age",
+    label: "How old are you?",
+    hint: "Training and recovery are dosed differently by decade.",
+    type: "choice",
+    layout: "grid",
+    options: ["Under 25", "25–34", "35–44", "45–54", "55+"],
   },
   {
     id: "phone",
@@ -33,17 +57,44 @@ export const questions: Question[] = [
   },
   {
     id: "work",
-    label: "What do you do, and what's your schedule like?",
-    hint: "Work hours, travel days, anything that shapes your week.",
-    type: "textarea",
-    placeholder: "e.g. Product manager, 9–7, travel ~1 week a month…",
+    label: "What does your work look like?",
+    hint: "This shapes when and how often you can realistically train.",
+    type: "choice",
+    options: [
+      "Desk / office job",
+      "Travel-heavy or field role",
+      "Shift work — nights or rotating",
+      "Business owner / founder",
+      "Homemaker",
+      "Student",
+    ],
+  },
+  {
+    id: "hours",
+    label: "And your typical hours?",
+    hint: "Be honest about the week you actually have, not the ideal one.",
+    type: "choice",
+    options: [
+      "Standard — around 9 to 6",
+      "Long — 10+ hours most days",
+      "Unpredictable — changes week to week",
+      "Flexible — I set my own hours",
+    ],
   },
   {
     id: "why",
-    label: "Why do you want to start now — what changed?",
-    hint: "Be honest. This helps Rudhra understand what's really driving this.",
-    type: "textarea",
-    placeholder: "What made today the day?",
+    label: "What's pushing you to start now?",
+    hint: "Pick everything that applies.",
+    type: "multi",
+    options: [
+      "Energy crashes through the day",
+      "Weight has crept up over the years",
+      "A health report or scare",
+      "Clothes don't fit like they used to",
+      "Tired of starting and stopping",
+      "An event or trip coming up",
+      "I want to feel strong again",
+    ],
   },
   {
     id: "frustration",
@@ -53,48 +104,94 @@ export const questions: Question[] = [
   },
   {
     id: "meaning",
-    label: "What would hitting this goal actually mean for your life?",
-    hint: "Confidence, energy, relationships, how you show up at work — go beyond the physical.",
-    type: "textarea",
-    placeholder: "Paint the picture…",
+    label: "What would hitting this goal actually change?",
+    hint: "Pick everything that applies — go beyond the physical.",
+    type: "multi",
+    options: [
+      "Confidence in how I look",
+      "Energy for my family",
+      "Showing up sharper at work",
+      "Coming off or reducing medication",
+      "Feeling in control again",
+      "Being able to keep up physically",
+    ],
   },
   {
     id: "goal",
     label: "What's your primary fitness goal?",
-    hint: "Weight loss, muscle, strength, energy, stress management.",
-    placeholder: "e.g. Lose fat and feel less tired by 6pm",
+    hint: "Pick the one that matters most — the rest tends to follow.",
+    type: "choice",
+    options: [
+      "Lose fat and weight",
+      "Build muscle",
+      "Body recomposition",
+      "Get stronger",
+      "More energy and better sleep",
+      "Manage stress and focus",
+    ],
   },
   {
     id: "activity",
-    label: "What's your current activity level?",
-    hint: "Training already, or starting from scratch?",
-    placeholder: "e.g. Walk sometimes, haven't lifted in years",
+    label: "Where are you starting from?",
+    hint: "There's no bad answer here — it just sets the first four weeks.",
+    type: "choice",
+    options: [
+      "Nothing at the moment",
+      "The odd walk or weekend game",
+      "1–2 sessions a week",
+      "Training regularly but stuck",
+      "Was consistent before — fell off",
+    ],
   },
   {
     id: "injuries",
-    label: "Any injuries, medical conditions, or limitations?",
-    hint: "Anything Rudhra should design around. Type “None” if nothing applies.",
-    type: "textarea",
-    placeholder: "None, or describe…",
-    optional: true,
+    label: "Anything Rudhra should design around?",
+    hint: "Pick anything that applies. You can add detail at the end.",
+    type: "multi",
+    exclusive: ["Nothing — all clear"],
+    options: [
+      "Nothing — all clear",
+      "Knees",
+      "Lower back",
+      "Shoulder or neck",
+      "Diabetes / thyroid / PCOS",
+      "Blood pressure or cholesterol",
+      "Recovering from injury or surgery",
+    ],
   },
   {
     id: "access",
     label: "Where will you train?",
-    hint: "Gym, home equipment, or a hybrid?",
-    placeholder: "e.g. Building gym + a few dumbbells at home",
+    hint: "The plan is built around what you actually have access to.",
+    type: "choice",
+    options: [
+      "Full gym",
+      "Home — dumbbells or bands",
+      "Home — bodyweight only",
+      "Both gym and home",
+      "Not sure yet",
+    ],
   },
   {
     id: "diet",
-    label: "Any dietary preferences or restrictions?",
-    hint: "Veg, non-veg, vegan, allergies, or anything you avoid.",
-    placeholder: "e.g. Vegetarian, no eggs",
+    label: "How do you eat?",
+    hint: "Your nutrition plan is built inside this, never against it.",
+    type: "choice",
+    options: [
+      "Vegetarian",
+      "Vegetarian + eggs",
+      "Non-vegetarian",
+      "Vegan",
+      "Jain",
+      "I'll explain on the call",
+    ],
   },
   {
     id: "commitment",
     label: "How many days a week can you commit to your 1:1 workouts?",
     hint: "Given your actual schedule — the plan is built on this.",
     type: "choice",
+    layout: "grid",
     options: ["2 days", "3 days"],
   },
   {
@@ -107,6 +204,14 @@ export const questions: Question[] = [
       "I'd like to discuss it first",
       "It's not in my budget right now",
     ],
+  },
+  {
+    id: "notes",
+    label: "Anything else Rudhra should know?",
+    hint: "Optional — allergies, past coaching, injuries in detail, anything on your mind.",
+    type: "textarea",
+    placeholder: "Skip this if there's nothing to add…",
+    optional: true,
   },
 ];
 

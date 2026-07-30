@@ -9,6 +9,18 @@ type SubmitState = "idle" | "submitting" | "success" | "error";
 
 const TOTAL = questions.length;
 
+/** Multi-pick answers are stored as one ", "-joined string. */
+const MULTI_SEP = ", ";
+
+function parseMulti(value: string): string[] {
+  return value ? value.split(MULTI_SEP).filter(Boolean) : [];
+}
+
+/** A typed step — the only ones that need a keyboard and a Continue button. */
+function isTyped(q: Question | undefined) {
+  return !q?.type || q.type === "text" || q.type === "textarea";
+}
+
 export function ApplicationForm() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [step, setStep] = useState(0);
@@ -21,8 +33,8 @@ export function ApplicationForm() {
   const q = questions[step];
 
   useEffect(() => {
-    // Focus the field as each text step appears so typing is immediate.
-    if (!isReview && (q?.type === undefined || q?.type === "textarea" || q?.type === "text")) {
+    // Focus the field as each typed step appears so typing is immediate.
+    if (!isReview && isTyped(q)) {
       inputRef.current?.focus();
     }
   }, [step, isReview, q]);
@@ -33,6 +45,7 @@ export function ApplicationForm() {
 
   const currentValue = q ? (values[q.id] ?? "") : "";
   const currentValid = isReview || !!q?.optional || currentValue.trim().length > 0;
+  const selectedMulti = q?.type === "multi" ? parseMulti(currentValue) : [];
 
   function goNext() {
     if (returnToReview) {
@@ -51,10 +64,34 @@ export function ApplicationForm() {
     setStep((s) => Math.max(s - 1, 0));
   }
 
-  /** Picking an option (scale / yes-no) records it and advances on its own. */
+  /** Picking a single-answer option records it and advances on its own. */
   function choose(id: string, v: string) {
     set(id, v);
     setTimeout(goNext, 160);
+  }
+
+  /**
+   * Multi-pick: toggle one option, keeping the canonical option order so the
+   * stored string reads the same way every time. Exclusive options ("Nothing —
+   * all clear") and the rest of the list mutually clear each other.
+   */
+  function toggle(question: Question, opt: string) {
+    const options = question.options ?? [];
+    const exclusive = question.exclusive ?? [];
+    const picked = new Set(parseMulti(values[question.id] ?? ""));
+
+    if (picked.has(opt)) {
+      picked.delete(opt);
+    } else {
+      if (exclusive.includes(opt)) picked.clear();
+      else exclusive.forEach((e) => picked.delete(e));
+      picked.add(opt);
+    }
+
+    set(
+      question.id,
+      options.filter((o) => picked.has(o)).join(MULTI_SEP),
+    );
   }
 
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
@@ -163,30 +200,47 @@ export function ApplicationForm() {
                   </button>
                 ))}
               </div>
-            ) : q.type === "yesno" || q.type === "choice" ? (
-              <div className="grid gap-3">
-                {(
-                  q.options ?? [
-                    "Yes, I'm comfortable",
-                    "I'd like to discuss it first",
-                  ]
-                ).map(
-                  (opt) => (
+            ) : q.type === "choice" || q.type === "multi" ? (
+              <div
+                className={`grid gap-3 ${q.layout === "grid" ? "grid-cols-2" : ""}`}
+              >
+                {(q.options ?? []).map((opt) => {
+                  const selected =
+                    q.type === "multi"
+                      ? selectedMulti.includes(opt)
+                      : currentValue === opt;
+                  return (
                     <button
                       key={opt}
                       type="button"
-                      aria-pressed={currentValue === opt}
-                      onClick={() => choose(q.id, opt)}
-                      className={`rounded-tile border px-4 py-4 text-left transition ${
-                        currentValue === opt
+                      role={q.type === "multi" ? "checkbox" : undefined}
+                      aria-checked={q.type === "multi" ? selected : undefined}
+                      aria-pressed={q.type === "multi" ? undefined : selected}
+                      onClick={() =>
+                        q.type === "multi" ? toggle(q, opt) : choose(q.id, opt)
+                      }
+                      className={`flex items-center gap-3 rounded-tile border px-4 py-4 text-left transition ${
+                        selected
                           ? "border-rust bg-rust/10 font-medium"
                           : "border-rust/20 bg-card-warm hover:border-rust/60"
                       }`}
                     >
-                      {opt}
+                      {q.type === "multi" && (
+                        <span
+                          aria-hidden="true"
+                          className={`flex h-5 w-5 flex-none items-center justify-center rounded-md border text-xs text-white transition ${
+                            selected
+                              ? "border-rust bg-rust"
+                              : "border-rust/30 bg-card"
+                          }`}
+                        >
+                          {selected ? "✓" : ""}
+                        </span>
+                      )}
+                      <span className="min-w-0">{opt}</span>
                     </button>
-                  ),
-                )}
+                  );
+                })}
               </div>
             ) : q.type === "textarea" ? (
               <textarea
@@ -212,8 +266,9 @@ export function ApplicationForm() {
             )}
           </div>
 
-          {/* Continue button only for the typed steps; picks auto-advance. */}
-          {q.type !== "scale" && q.type !== "yesno" && q.type !== "choice" && (
+          {/* Typed and multi-pick steps need a Continue; single picks
+              auto-advance the moment they're tapped. */}
+          {(isTyped(q) || q.type === "multi") && (
             <div className="mt-6">
               <Button onClick={goNext} disabled={!currentValid}>
                 Continue →
@@ -296,7 +351,7 @@ function ReviewStep({
                 <span className="min-w-0 flex-1">
                   <span className="block text-xs text-ink-soft">{q.label}</span>
                   <span
-                    className={`block truncate text-sm ${v ? "text-ink" : "text-ink-faint italic"}`}
+                    className={`block line-clamp-2 text-sm ${v ? "text-ink" : "text-ink-faint italic"}`}
                   >
                     {v || "Skipped"}
                   </span>

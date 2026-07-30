@@ -38,7 +38,7 @@ A single-coach marketing and lead-capture site for **COACHEDBYRUDHRA**, offering
 The site has two jobs:
 
 1. **Convert** — an interactive funnel that earns attention before asking for anything (no email gate, no signup).
-2. **Capture** — a 13-question application that lands in Firestore and emails Rudhra immediately.
+2. **Capture** — a 16-question, mostly-tappable application that lands in Firestore and emails Rudhra immediately.
 
 Everything the client supplied lives in one file, [lib/content.ts](lib/content.ts), so copy changes never require hunting through components.
 
@@ -53,7 +53,7 @@ Everything the client supplied lives in one file, [lib/content.ts](lib/content.t
 | `/about` | Static | Yes | Meet Rudhra, coaching approach |
 | `/faq` | Static | Yes | The five FAQs, with rich-result schema |
 | `/results` | Static | Yes | Client transformation gallery |
-| `/apply` | Static | Yes | The 13-question application form |
+| `/apply` | Static | Yes | The 16-question application form |
 | `/apply/submitted` | Dynamic | **No** | Confirmation page after submitting |
 | `/admin` | Dynamic | **No** | Password-gated applications + inbox |
 | `/api/apply` | Node runtime | n/a | Receives form submissions |
@@ -114,25 +114,38 @@ Performance behaviour:
 
 ## 4. The application form
 
-`/apply` asks 13 questions, one per screen, verbatim from the client's form PDF. They are defined once in [lib/application-questions.ts](lib/application-questions.ts) and shared by the form, the API route, the email, and the admin panel — so labels and order can never drift.
+`/apply` asks 16 questions, one per screen, adapted from the client's form PDF. They are defined once in [lib/application-questions.ts](lib/application-questions.ts) and shared by the form, the API route, the email, and the admin panel — so labels and order can never drift.
+
+The form is deliberately **tap-first**: only three steps involve a keyboard, and one of those is optional. Applicants are filling this in on a phone between meetings, and a page of empty text boxes is where applications get abandoned.
 
 | # | Question | Type |
 |---|---|---|
-| 1 | First, your name and age | text |
-| 2 | Your phone / WhatsApp number | text |
-| 3 | What do you do, and what's your schedule like? | textarea |
-| 4 | Why do you want to start now — what changed? | textarea |
-| 5 | How frustrated are you with your health and energy right now? | scale 1–10 |
-| 6 | What would hitting this goal actually mean for your life? | textarea |
-| 7 | What's your primary fitness goal? | text |
-| 8 | What's your current activity level? | text |
-| 9 | Any injuries, medical conditions, or limitations? | textarea — **optional** |
-| 10 | Where will you train? | text |
-| 11 | Any dietary preferences or restrictions? | text |
-| 12 | How many days a week can you commit? | choice: 2 / 3 days |
-| 13 | A quick one on investment | choice: comfortable / discuss first / not in budget |
+| 1 | First, what should Rudhra call you? | **text** |
+| 2 | How old are you? | choice: 5 age bands |
+| 3 | Your phone / WhatsApp number | **text** |
+| 4 | What does your work look like? | choice: 6 |
+| 5 | And your typical hours? | choice: 4 |
+| 6 | What's pushing you to start now? | multi: 7 |
+| 7 | How frustrated are you with your health and energy right now? | scale 1–10 |
+| 8 | What would hitting this goal actually change? | multi: 6 |
+| 9 | What's your primary fitness goal? | choice: 6 |
+| 10 | Where are you starting from? | choice: 5 |
+| 11 | Anything Rudhra should design around? | multi: 7 |
+| 12 | Where will you train? | choice: 5 |
+| 13 | How do you eat? | choice: 6 |
+| 14 | How many days a week can you commit? | choice: 2 / 3 days |
+| 15 | A quick one on investment | choice: comfortable / discuss first / not in budget |
+| 16 | Anything else Rudhra should know? | textarea — **optional** |
 
-**Question 9 is the only optional one.** All others must be answered.
+**Question 16 is the only optional one.** All others must be answered.
+
+### Question types
+
+- **choice** — single pick; tapping an option records it and auto-advances after 160 ms
+- **multi** — pick many; stored as a `", "`-joined string in canonical option order, so multi option labels must never contain a comma. A question can name `exclusive` options (e.g. *"Nothing — all clear"*) that clear and are cleared by every other pick
+- **scale** — 1–10 grid, auto-advances
+- **text / textarea** — the only steps with a Continue button and autofocus
+- `layout: "grid"` renders short options as two-up tiles instead of a stacked list
 
 ---
 
@@ -140,7 +153,7 @@ Performance behaviour:
 
 Handled by [app/api/apply/route.ts](app/api/apply/route.ts). Runs on the Node.js runtime (nodemailer and the Firebase Admin SDK cannot run on Edge).
 
-1. **Validate** — answers are whitelisted against known question IDs, coerced to trimmed strings, and capped at 4,000 characters each. Unknown fields are dropped. Any missing required answer returns `400` naming the question.
+1. **Validate** — answers are whitelisted against known question IDs, coerced to trimmed strings, and capped at 4,000 characters each. Unknown fields are dropped. Choice, multi and scale answers are additionally checked against their declared option sets and discarded if they don't match, so a tampered payload can't write arbitrary text into a fixed-option field. Any missing required answer returns `400` naming the question.
 2. **Save first** — writes to the Firestore `applications` collection with all answers, a numbered `summary` string, `status: "new"`, `source: "website"`, and a server timestamp. If this fails the applicant sees an error and nothing is lost silently.
 3. **Email second, in the background** — the notification is sent inside Next.js `after()`, so the applicant never waits on SMTP and **a mail failure cannot lose a lead that is already saved**.
 4. **Redirect** — on an `ok` response the form itself navigates to `/apply/submitted`, passing the applicant's first name in the query string. That page greets them by name, re-parsing and capping it at 40 characters rather than trusting the URL.
