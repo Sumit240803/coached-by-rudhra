@@ -1,17 +1,18 @@
 @import "tailwindcss";
-/* LOCAL PREVIEW ONLY — inert unless <html data-theme="mono">. Remove before shipping. */
-@import "./mono-theme.css";
 
 @theme {
-  /* Warm cream surfaces, rust accent, near-black-brown ink. */
+  /* Warm cream surfaces, black accent, near-black-brown ink.
+     The accent family is still named `rust` throughout the codebase — the
+     colour moved to black, the token names stayed so the change was a palette
+     edit rather than a rename across every component. */
   --color-cream: #faf6f1;
   --color-cream-deep: #f2eae0;
   --color-card: #ffffff;
   --color-card-warm: #fbf5ef;
-  --color-rust: #b0522f;
-  --color-rust-dark: #90411f;
-  --color-rust-soft: #d9a288;
-  --color-tan: #c99a6b;
+  --color-rust: #17120f;
+  --color-rust-dark: #000000;
+  --color-rust-soft: #c2bcb7;
+  --color-tan: #a49c95;
   --color-ink: #2b1d16;
   --color-ink-soft: #6b5a50;
   --color-ink-faint: #a19086;
@@ -25,7 +26,7 @@
 
   --shadow-card: 0 24px 60px -12px rgb(43 29 22 / 0.18);
   --shadow-tile: 0 8px 24px -8px rgb(43 29 22 / 0.14);
-  --shadow-cta: 0 12px 28px -8px rgb(176 82 47 / 0.5);
+  --shadow-cta: 0 12px 28px -8px rgb(23 18 15 / 0.35);
 
   --animate-marquee: marquee 60s linear infinite;
   --animate-step-in: step-in 0.28s ease both;

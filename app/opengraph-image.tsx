@@ -18,7 +18,7 @@ export default function OpengraphImage() {
           justifyContent: "center",
           padding: "80px",
           background:
-            "linear-gradient(135deg, #b0522f 0%, #90411f 100%)",
+            "linear-gradient(135deg, #17120f 0%, #000000 100%)",
           color: "#faf6f1",
           fontFamily: "sans-serif",
         }}
@@ -26,7 +26,7 @@ export default function OpengraphImage() {
         {/* Dumbbell mark */}
         <svg width="96" height="96" viewBox="0 0 32 32" fill="none">
           <rect width="32" height="32" rx="7" fill="#faf6f1" />
-          <g fill="#b0522f">
+          <g fill="#17120f">
             <rect x="10" y="14.5" width="12" height="3" rx="1.5" />
             <rect x="7" y="10" width="3.2" height="12" rx="1.4" />
             <rect x="21.8" y="10" width="3.2" height="12" rx="1.4" />
