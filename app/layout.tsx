@@ -100,6 +100,16 @@ export default function RootLayout({
       className={`${oswald.variable} ${poppins.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-cream text-ink">
+        {/* LOCAL PREVIEW ONLY — black & white variant toggle (app/mono-theme.css).
+            ?theme=mono turns it on and it sticks across navigation; ?theme=off
+            clears it. Runs synchronously before the page paints, so a screenshot
+            can never catch the colour theme mid-swap. Remove before shipping. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var p=new URLSearchParams(location.search).get('theme');if(p)localStorage.setItem('previewTheme',p);if(localStorage.getItem('previewTheme')==='mono')document.documentElement.setAttribute('data-theme','mono');else document.documentElement.removeAttribute('data-theme');}catch(e){}})()",
+          }}
+        />
         {children}
         <JsonLd data={jsonLd} />
       </body>

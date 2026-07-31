@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* LOCAL PREVIEW ONLY — inert unless <html data-theme="mono">. Remove before shipping. */
+@import "./mono-theme.css";
 
 @theme {
   /* Warm cream surfaces, rust accent, near-black-brown ink. */
