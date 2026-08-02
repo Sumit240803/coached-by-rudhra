@@ -54,7 +54,7 @@ Everything the client supplied lives in one file, [lib/content.ts](lib/content.t
 | `/faq` | Static | Yes | The five FAQs, with rich-result schema |
 | `/results` | Static | Yes | Client transformation gallery |
 | `/apply` | Static | Yes | The 16-question application form |
-| `/apply/submitted` | Dynamic | **No** | Confirmation page after submitting |
+| `/apply/submitted` | Dynamic | **No** | Confirmation + Calendly booking step |
 | `/admin` | Dynamic | **No** | Password-gated applications + inbox |
 | `/api/apply` | Node runtime | n/a | Receives form submissions |
 | `/sitemap.xml`, `/robots.txt`, `/manifest.webmanifest`, `/opengraph-image` | Static | n/a | Metadata endpoints |
@@ -156,9 +156,17 @@ Handled by [app/api/apply/route.ts](app/api/apply/route.ts). Runs on the Node.js
 1. **Validate** — answers are whitelisted against known question IDs, coerced to trimmed strings, and capped at 4,000 characters each. Unknown fields are dropped. Choice, multi and scale answers are additionally checked against their declared option sets and discarded if they don't match, so a tampered payload can't write arbitrary text into a fixed-option field. Any missing required answer returns `400` naming the question.
 2. **Save first** — writes to the Firestore `applications` collection with all answers, a numbered `summary` string, `status: "new"`, `source: "website"`, and a server timestamp. If this fails the applicant sees an error and nothing is lost silently.
 3. **Email second, in the background** — the notification is sent inside Next.js `after()`, so the applicant never waits on SMTP and **a mail failure cannot lose a lead that is already saved**.
-4. **Redirect** — on an `ok` response the form itself navigates to `/apply/submitted`, passing the applicant's first name in the query string. That page greets them by name, re-parsing and capping it at 40 characters rather than trusting the URL.
+4. **Redirect to the booking step** — on an `ok` response the form navigates to `/apply/submitted`, passing the applicant's first name in the query string. That page greets them by name (re-parsed and capped at 40 characters rather than trusted from the URL) and asks for one last thing: a time on Rudhra's calendar.
 
 The ordering is deliberate: capturing the lead is the critical step; notifying is best-effort.
+
+### The booking step
+
+`/apply/submitted` is where an application becomes a conversation, so it is built so that booking cannot depend on a third party behaving:
+
+- The Calendly URL lives in `site.calendly` in [lib/content.ts](lib/content.ts). The first name is added as a `name` prefill so nobody retypes what they just told us, and Calendly's own `utm_id` is preserved.
+- A plain `<a>` to that URL is always rendered as the primary button. It works with the embed script blocked, failed, or still loading.
+- [components/calendly.tsx](components/calendly.tsx) adds the inline widget on top. Because the iframe is cross-origin, a loaded script is **not** proof the calendar rendered — the only honest signal is Calendly's `postMessage`. Until one arrives the panel shows a loading line; if none arrives within 12 seconds the embed removes itself rather than leave an empty panel above the working link.
 
 ---
 

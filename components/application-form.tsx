@@ -366,9 +366,9 @@ function ReviewStep({
       </ul>
 
       <div className="mt-6 rounded-tile bg-card-warm p-4 text-center text-sm text-ink-soft">
-        When you submit, your answers go straight to Rudhra. He reviews every
-        application personally and reaches out to you. Spots for 1:1 coaching are
-        limited each month.
+        When you submit, your answers go straight to Rudhra — then you&apos;ll
+        pick a time for your free consultation. He reads every application before
+        the call. Spots for 1:1 coaching are limited each month.
       </div>
 
       <Button

@@ -16,6 +16,10 @@ export const site = {
   description:
     "1:1 personal training and nutrition guidance built for people with packed calendars, back-to-back meetings, and zero patience for plans that don't work. Fully online coaching from Rudhra.",
   instagram: "https://www.instagram.com/coachedbyrudhra/",
+  // Booking page for the free consultation — the last step of the application
+  // flow. The utm_id is Calendly's own campaign tag; keep it on the URL.
+  calendly:
+    "https://calendly.com/coachedbyrudhra?utm_id=97760_v0_s00_e0_tv4",
   supportEmail: "support@coachedbyrudhra.com",
   // Digits only, country code first (India +91).
   whatsappNumber: "917983374576",
